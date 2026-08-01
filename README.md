@@ -101,5 +101,3 @@ The application now tolerates both JSON arrays and comma-separated values for `C
 - Improve structured logging, tracing, and metrics.
 
 ---
-
-If you'd like, I can add a `docker-compose.prod.yml`, production `Dockerfile`, and a GitHub Actions CI workflow next. 
