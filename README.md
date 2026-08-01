@@ -1,88 +1,61 @@
 # AI Code Reviewer
 
-Industry-grade AI Code Reviewer scaffold built with a FastAPI backend and a Streamlit frontend.
+Industry-grade AI Code Reviewer scaffold built with a FastAPI backend and a Streamlit frontend. This README covers local development, Docker, testing, and production guidance.
 
-## Phase 1 Goals
+## Quick Start (Local)
 
-- Production-ready project structure
-- Clean architecture boundaries
-- Docker-ready service layout
-- Environment and dependency scaffolding
-- No business logic yet
-
-## Technology Stack
-
-- Python 3.12
-- FastAPI for the backend API
-- Streamlit for the frontend experience
-- Docker and Docker Compose for containerized runs
-
-## Repository Layout
-
-```text
-.
-├── backend/
-├── frontend/
-├── .env.example
-├── .gitignore
-├── .vscode/
-└── docker-compose.yml
-```
-
-## Local Setup
-
-1. Create a virtual environment with Python 3.12:
+1. Create and activate a Python 3.12 virtual environment:
 
 ```powershell
 py -3.12 -m venv .venv
+.venv\Scripts\Activate.ps1
 ```
 
-2. Activate it:
-
-```powershell
-.venv\\Scripts\\Activate.ps1
-```
-
-3. Install backend dependencies:
+2. Install dependencies:
 
 ```powershell
 pip install -r backend/requirements.txt
-```
-
-4. Install frontend dependencies:
-
-```powershell
 pip install -r frontend/requirements.txt
 ```
 
-5. Copy the environment template:
+3. Copy environment template and edit values:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-## Run Locally
+4. Run services locally (development):
 
-Backend:
+Backend (FastAPI):
 
 ```powershell
 cd backend
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8000
 ```
 
-Frontend:
+Frontend (Streamlit):
 
 ```powershell
 cd frontend
-streamlit run app.py
+streamlit run app.py --server.port 8501
 ```
 
-## Docker
+The API default host/port when using Docker Compose is mapped to host port `8001` → container `8000` for convenience.
 
-Build and start both services:
+## Docker (Development)
+
+Build and start both services with Compose (dev-friendly mounts and healthchecks):
 
 ```powershell
 docker compose up --build
+```
+
+Notes:
+- `.env` is mounted into the backend service so Pydantic `env_file` settings can read it inside the container.
+- `CORS_ORIGINS` should be a JSON array string in `.env`, e.g.:
+
+```
+CORS_ORIGINS=["http://localhost:3000","http://localhost:8501"]
 ```
 
 ## Tests
@@ -94,24 +67,39 @@ cd backend
 pytest -q
 ```
 
-## Notes for Production
+There is a unit test validating the `ReportEngine` assembly and export metadata.
 
-- Ensure environment variables are set (see `.env.example`).
-- Use a process manager (Gunicorn + Uvicorn workers) for production backend instead of the development reloader and enable TLS termination at the proxy/load balancer.
-- For frontend, build a static production artifact if using a web stack, or run Streamlit behind a reverse proxy with proper caching.
+## Configuration / Environment Variables
 
-## Environment Variables
+Required or commonly used variables (set in `.env` for dev or via your secrets manager in prod):
+- `OPENAI_API_KEY` — API key for LLM provider (if used)
+- `MODEL_NAME` — LLM model identifier
+- `BACKEND_BASE_URL` — e.g., `http://localhost:8001`
+- `CORS_ORIGINS` — JSON array or comma-separated string; e.g. `["http://localhost:3000","http://localhost:8501"]`
+- `LOG_FILE` — optional file path to enable rotating file logging inside the backend container
 
-Populate the following values in `.env` when you are ready:
+The application now tolerates both JSON arrays and comma-separated values for `CORS_ORIGINS` to avoid startup failures from env formatting.
 
-- `OPENAI_API_KEY`
-- `MODEL_NAME`
-- `BACKEND_BASE_URL`
-- `CORS_ORIGINS`
+## Production Recommendations
 
-## Placeholder Milestones
+- Use a production process manager (Gunicorn with Uvicorn workers) instead of the development `--reload` server.
+- Build a production Docker image (multi-stage) that excludes source mounts and development tools.
+- Add CI (GitHub Actions) to run tests, lint (ruff/flake8), and format (black) on each PR.
+- Add automated integration tests that mock LLM responses for stable CI runs.
+- Add monitoring and error tracking (Prometheus/OpenTelemetry + Sentry) for observability.
 
-- Phase 2: backend domain and application use cases
-- Phase 3: code analysis and review orchestration
-- Phase 4: frontend review workflow and feedback views
-- Phase 5: testing, observability, and deployment hardening
+## What changed recently
+
+- Added support for combined report export metadata (JSON + Markdown) and ensured `markdown_report` is preserved for PDF export.
+- Hardened environment parsing for `CORS_ORIGINS` and added optional rotating file logging via `LOG_FILE`.
+- Added a pytest for the `ReportEngine` and Docker Compose configuration improvements.
+
+## Next steps / Roadmap
+
+- Create a production-ready `Dockerfile` and `docker-compose.prod.yml` with Gunicorn + Uvicorn workers.
+- Expand unit and integration tests and add CI.
+- Improve structured logging, tracing, and metrics.
+
+---
+
+If you'd like, I can add a `docker-compose.prod.yml`, production `Dockerfile`, and a GitHub Actions CI workflow next. 
