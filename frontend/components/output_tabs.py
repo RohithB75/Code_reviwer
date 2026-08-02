@@ -16,10 +16,13 @@ def render_output_tabs(
     backend_health_message: str,
     review_result: dict | None = None,
     review_error: str | None = None,
+    performance_clicked: bool = False,
+    performance_result: dict | None = None,
+    performance_error: str | None = None,
 ) -> None:
     st.markdown('<div class="app-shell">', unsafe_allow_html=True)
     st.markdown("### Output")
-    tabs = st.tabs(["Summary", "Backend", "Context", "Preview"])
+    tabs = st.tabs(["Summary", "Performance", "Backend", "Context", "Preview"])
 
     with tabs[0]:
         if not review_clicked:
@@ -40,6 +43,43 @@ def render_output_tabs(
             st.info("Waiting for review result...")
 
     with tabs[1]:
+        if not performance_clicked:
+            st.info("Click \"Analyze performance\" to get time/space complexity and optimization suggestions.")
+        elif performance_error:
+            st.error(performance_error)
+        elif performance_result:
+            st.write(f"**Language:** {performance_result.get('language', language)}")
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.metric("Time complexity", performance_result.get("time_complexity", "Unknown"))
+            with col_b:
+                st.metric("Space complexity", performance_result.get("space_complexity", "Unknown"))
+            if performance_result.get("memory_usage"):
+                st.write(f"**Memory usage:** {performance_result['memory_usage']}")
+            st.markdown("**Summary**")
+            st.write(performance_result.get("summary", ""))
+
+            inefficient_loops = performance_result.get("inefficient_loops") or []
+            if inefficient_loops:
+                st.markdown("**Inefficient loops**")
+                for item in inefficient_loops:
+                    st.markdown(f"- {item}")
+
+            duplicate_work = performance_result.get("duplicate_work") or []
+            if duplicate_work:
+                st.markdown("**Duplicate work**")
+                for item in duplicate_work:
+                    st.markdown(f"- {item}")
+
+            better_algorithms = performance_result.get("better_algorithms") or []
+            if better_algorithms:
+                st.markdown("**Suggested improvements**")
+                for item in better_algorithms:
+                    st.markdown(f"- {item}")
+        else:
+            st.info("Waiting for performance result...")
+
+    with tabs[2]:
         if backend_health is None:
             st.info("Run a review to call the backend health endpoint.")
         elif backend_health.ok:
@@ -49,13 +89,13 @@ def render_output_tabs(
             st.error(backend_health.error or "Backend health endpoint failed.")
             st.write(backend_health_message)
 
-    with tabs[2]:
+    with tabs[3]:
         if review_context:
             st.write(review_context)
         else:
             st.caption("No additional context provided.")
 
-    with tabs[3]:
+    with tabs[4]:
         st.code(code or "# Your code preview will appear here.", language=language.lower())
 
     st.markdown("</div>", unsafe_allow_html=True)

@@ -28,6 +28,9 @@ def build_page() -> None:
     st.session_state.setdefault("backend_health_message", "Backend not checked yet.")
     st.session_state.setdefault("review_result", None)
     st.session_state.setdefault("review_error", None)
+    st.session_state.setdefault("performance_result", None)
+    st.session_state.setdefault("performance_error", None)
+    st.session_state.setdefault("performance_clicked", False)
 
     sidebar_state = render_sidebar()
     apply_theme(sidebar_state.theme)
@@ -83,6 +86,35 @@ def build_page() -> None:
     elif st.session_state["backend_health"] is None:
         st.caption("Click Review code to run the AI review.")
 
+    performance_clicked = st.button(
+        "Analyze performance (time/space complexity)",
+        use_container_width=True,
+    )
+    if performance_clicked:
+        st.session_state["performance_clicked"] = True
+        if not editor_state.code:
+            st.session_state["performance_result"] = None
+            st.session_state["performance_error"] = "No code to analyze. Paste code or upload a file first."
+            st.warning(st.session_state["performance_error"])
+        else:
+            file_name = upload_state.filenames[0] if upload_state.filenames else None
+            with st.spinner("Analyzing time/space complexity..."):
+                performance_result = api_service.analyze_performance(
+                    source_code=editor_state.code,
+                    file_name=file_name,
+                    review_context=sidebar_state.review_context,
+                    language_hint=sidebar_state.language,
+                )
+
+            if performance_result.ok:
+                st.session_state["performance_result"] = performance_result.data
+                st.session_state["performance_error"] = None
+                st.success("Performance analysis complete.")
+            else:
+                st.session_state["performance_result"] = None
+                st.session_state["performance_error"] = performance_result.error or "Performance analysis request failed."
+                st.error(st.session_state["performance_error"])
+
     render_status_panel(
         review_clicked=st.session_state["review_clicked"],
         language=sidebar_state.language,
@@ -101,6 +133,9 @@ def build_page() -> None:
         backend_health_message=st.session_state["backend_health_message"],
         review_result=st.session_state["review_result"],
         review_error=st.session_state["review_error"],
+        performance_clicked=st.session_state["performance_clicked"],
+        performance_result=st.session_state["performance_result"],
+        performance_error=st.session_state["performance_error"],
     )
 
 

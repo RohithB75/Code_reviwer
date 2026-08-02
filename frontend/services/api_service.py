@@ -54,6 +54,25 @@ class ApiService:
         }
         return self._post("api/v1/review/analyze", payload, timeout_seconds=90.0)
 
+    def analyze_performance(
+        self,
+        *,
+        source_code: str,
+        file_name: str | None = None,
+        review_context: str = "",
+        language_hint: str | None = None,
+    ) -> ApiResponse:
+        """Calls POST /api/v1/performance/analyze and returns a structured
+        performance analysis (time_complexity, space_complexity, memory_usage,
+        inefficient_loops, duplicate_work, better_algorithms)."""
+        payload = {
+            "source_code": source_code,
+            "file_name": file_name,
+            "review_context": review_context,
+            "language_hint": language_hint,
+        }
+        return self._post("api/v1/performance/analyze", payload, timeout_seconds=90.0)
+
     def _post(self, path: str, payload: dict[str, Any], *, timeout_seconds: float | None = None) -> ApiResponse:
         url = urljoin(self.base_url, path)
         try:
