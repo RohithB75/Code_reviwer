@@ -35,6 +35,6 @@ def render_sidebar() -> SidebarState:
             help="Provide local context that will shape the review summary placeholders.",
         )
         st.markdown("---")
-        st.caption("No backend connection is made in this phase.")
+        st.caption("Review context is sent to the AI model along with your code.")
 
     return SidebarState(theme=theme, language=language, review_context=review_context.strip())

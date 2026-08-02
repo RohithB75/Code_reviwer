@@ -14,19 +14,30 @@ def render_output_tabs(
     review_context: str,
     backend_health: ApiResponse | None,
     backend_health_message: str,
+    review_result: dict | None = None,
+    review_error: str | None = None,
 ) -> None:
     st.markdown('<div class="app-shell">', unsafe_allow_html=True)
     st.markdown("### Output")
     tabs = st.tabs(["Summary", "Backend", "Context", "Preview"])
 
     with tabs[0]:
-        if review_clicked:
-            st.success("Local review draft generated.")
-            st.write(f"Language: {language}")
-            st.write(f"Code length: {len(code)} characters")
-            st.write(f"Uploaded files: {len(uploaded_files)}")
-        else:
+        if not review_clicked:
             st.info("Review the code to populate the summary tab.")
+        elif review_error:
+            st.error(review_error)
+        elif review_result:
+            st.write(f"**Language:** {review_result.get('language', language)}")
+            st.write(f"**Quality score:** {review_result.get('quality_score', 'n/a')}/100")
+            st.markdown("**Summary**")
+            st.write(review_result.get("summary", ""))
+            suggestions = review_result.get("suggestions") or []
+            if suggestions:
+                st.markdown("**Suggestions**")
+                for suggestion in suggestions:
+                    st.markdown(f"- {suggestion}")
+        else:
+            st.info("Waiting for review result...")
 
     with tabs[1]:
         if backend_health is None:

@@ -8,6 +8,7 @@ import streamlit as st
 @dataclass(frozen=True)
 class UploadState:
     filenames: list[str]
+    contents: dict[str, str]  # filename -> decoded text content
 
 
 def render_file_uploader() -> UploadState:
@@ -22,11 +23,20 @@ def render_file_uploader() -> UploadState:
         label_visibility="collapsed",
     )
 
-    filenames = [file.name for file in uploads] if uploads else []
+    filenames: list[str] = []
+    contents: dict[str, str] = {}
+    if uploads:
+        for file in uploads:
+            filenames.append(file.name)
+            try:
+                contents[file.name] = file.getvalue().decode("utf-8")
+            except UnicodeDecodeError:
+                contents[file.name] = ""  # binary/non-text file, skip content
+
     if filenames:
         st.success(f"Loaded {len(filenames)} file(s): {', '.join(filenames)}")
     else:
         st.info("No files uploaded yet.")
 
     st.markdown("</div>", unsafe_allow_html=True)
-    return UploadState(filenames=filenames)
+    return UploadState(filenames=filenames, contents=contents)
