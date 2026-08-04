@@ -14,6 +14,44 @@ from components.uploader import render_file_uploader
 from services.api_service import ApiService
 
 
+def _run_action(
+    *,
+    api_service: ApiService,
+    method_name: str,
+    state_key: str,
+    spinner_text: str,
+    success_text: str,
+    editor_code: str,
+    file_name: str | None,
+    review_context: str,
+    language: str,
+) -> None:
+    st.session_state[f"{state_key}_clicked"] = True
+    if not editor_code:
+        st.session_state[f"{state_key}_result"] = None
+        st.session_state[f"{state_key}_error"] = "No code to analyze. Paste code or upload a file first."
+        st.warning(st.session_state[f"{state_key}_error"])
+        return
+
+    method = getattr(api_service, method_name)
+    with st.spinner(spinner_text):
+        result = method(
+            source_code=editor_code,
+            file_name=file_name,
+            review_context=review_context,
+            language_hint=language,
+        )
+
+    if result.ok:
+        st.session_state[f"{state_key}_result"] = result.data
+        st.session_state[f"{state_key}_error"] = None
+        st.success(success_text)
+    else:
+        st.session_state[f"{state_key}_result"] = None
+        st.session_state[f"{state_key}_error"] = result.error or f"{spinner_text} failed."
+        st.error(st.session_state[f"{state_key}_error"])
+
+
 def build_page() -> None:
     st.set_page_config(
         page_title="AI Code Reviewer",
@@ -31,6 +69,18 @@ def build_page() -> None:
     st.session_state.setdefault("performance_result", None)
     st.session_state.setdefault("performance_error", None)
     st.session_state.setdefault("performance_clicked", False)
+    st.session_state.setdefault("security_result", None)
+    st.session_state.setdefault("security_error", None)
+    st.session_state.setdefault("security_clicked", False)
+    st.session_state.setdefault("refactoring_result", None)
+    st.session_state.setdefault("refactoring_error", None)
+    st.session_state.setdefault("refactoring_clicked", False)
+    st.session_state.setdefault("unit_tests_result", None)
+    st.session_state.setdefault("unit_tests_error", None)
+    st.session_state.setdefault("unit_tests_clicked", False)
+    st.session_state.setdefault("documentation_result", None)
+    st.session_state.setdefault("documentation_error", None)
+    st.session_state.setdefault("documentation_clicked", False)
 
     sidebar_state = render_sidebar()
     apply_theme(sidebar_state.theme)
@@ -91,29 +141,78 @@ def build_page() -> None:
         use_container_width=True,
     )
     if performance_clicked:
-        st.session_state["performance_clicked"] = True
-        if not editor_state.code:
-            st.session_state["performance_result"] = None
-            st.session_state["performance_error"] = "No code to analyze. Paste code or upload a file first."
-            st.warning(st.session_state["performance_error"])
-        else:
-            file_name = upload_state.filenames[0] if upload_state.filenames else None
-            with st.spinner("Analyzing time/space complexity..."):
-                performance_result = api_service.analyze_performance(
-                    source_code=editor_state.code,
-                    file_name=file_name,
-                    review_context=sidebar_state.review_context,
-                    language_hint=sidebar_state.language,
-                )
+        file_name = upload_state.filenames[0] if upload_state.filenames else None
+        _run_action(
+            api_service=api_service,
+            method_name="analyze_performance",
+            state_key="performance",
+            spinner_text="Analyzing time/space complexity...",
+            success_text="Performance analysis complete.",
+            editor_code=editor_state.code,
+            file_name=file_name,
+            review_context=sidebar_state.review_context,
+            language=sidebar_state.language,
+        )
 
-            if performance_result.ok:
-                st.session_state["performance_result"] = performance_result.data
-                st.session_state["performance_error"] = None
-                st.success("Performance analysis complete.")
-            else:
-                st.session_state["performance_result"] = None
-                st.session_state["performance_error"] = performance_result.error or "Performance analysis request failed."
-                st.error(st.session_state["performance_error"])
+    security_clicked = st.button("Run security review", use_container_width=True)
+    if security_clicked:
+        file_name = upload_state.filenames[0] if upload_state.filenames else None
+        _run_action(
+            api_service=api_service,
+            method_name="analyze_security",
+            state_key="security",
+            spinner_text="Scanning for security issues...",
+            success_text="Security review complete.",
+            editor_code=editor_state.code,
+            file_name=file_name,
+            review_context=sidebar_state.review_context,
+            language=sidebar_state.language,
+        )
+
+    refactoring_clicked = st.button("Suggest refactoring", use_container_width=True)
+    if refactoring_clicked:
+        file_name = upload_state.filenames[0] if upload_state.filenames else None
+        _run_action(
+            api_service=api_service,
+            method_name="analyze_refactoring",
+            state_key="refactoring",
+            spinner_text="Generating refactored code...",
+            success_text="Refactoring suggestion ready.",
+            editor_code=editor_state.code,
+            file_name=file_name,
+            review_context=sidebar_state.review_context,
+            language=sidebar_state.language,
+        )
+
+    unit_tests_clicked = st.button("Generate unit tests", use_container_width=True)
+    if unit_tests_clicked:
+        file_name = upload_state.filenames[0] if upload_state.filenames else None
+        _run_action(
+            api_service=api_service,
+            method_name="generate_unit_tests",
+            state_key="unit_tests",
+            spinner_text="Generating pytest unit tests...",
+            success_text="Unit tests generated.",
+            editor_code=editor_state.code,
+            file_name=file_name,
+            review_context=sidebar_state.review_context,
+            language=sidebar_state.language,
+        )
+
+    documentation_clicked = st.button("Generate documentation", use_container_width=True)
+    if documentation_clicked:
+        file_name = upload_state.filenames[0] if upload_state.filenames else None
+        _run_action(
+            api_service=api_service,
+            method_name="generate_documentation",
+            state_key="documentation",
+            spinner_text="Generating documentation...",
+            success_text="Documentation generated.",
+            editor_code=editor_state.code,
+            file_name=file_name,
+            review_context=sidebar_state.review_context,
+            language=sidebar_state.language,
+        )
 
     render_status_panel(
         review_clicked=st.session_state["review_clicked"],
@@ -136,6 +235,18 @@ def build_page() -> None:
         performance_clicked=st.session_state["performance_clicked"],
         performance_result=st.session_state["performance_result"],
         performance_error=st.session_state["performance_error"],
+        security_clicked=st.session_state["security_clicked"],
+        security_result=st.session_state["security_result"],
+        security_error=st.session_state["security_error"],
+        refactoring_clicked=st.session_state["refactoring_clicked"],
+        refactoring_result=st.session_state["refactoring_result"],
+        refactoring_error=st.session_state["refactoring_error"],
+        unit_tests_clicked=st.session_state["unit_tests_clicked"],
+        unit_tests_result=st.session_state["unit_tests_result"],
+        unit_tests_error=st.session_state["unit_tests_error"],
+        documentation_clicked=st.session_state["documentation_clicked"],
+        documentation_result=st.session_state["documentation_result"],
+        documentation_error=st.session_state["documentation_error"],
     )
 
 

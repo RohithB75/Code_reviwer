@@ -73,6 +73,79 @@ class ApiService:
         }
         return self._post("api/v1/performance/analyze", payload, timeout_seconds=90.0)
 
+    def analyze_security(
+        self,
+        *,
+        source_code: str,
+        file_name: str | None = None,
+        review_context: str = "",
+        language_hint: str | None = None,
+    ) -> ApiResponse:
+        """Calls POST /api/v1/security/analyze and returns a structured
+        security review (overall_severity, findings: issue/severity/
+        description/evidence/recommendation)."""
+        payload = {
+            "source_code": source_code,
+            "file_name": file_name,
+            "review_context": review_context,
+            "language_hint": language_hint,
+        }
+        return self._post("api/v1/security/analyze", payload, timeout_seconds=90.0)
+
+    def analyze_refactoring(
+        self,
+        *,
+        source_code: str,
+        file_name: str | None = None,
+        review_context: str = "",
+        language_hint: str | None = None,
+    ) -> ApiResponse:
+        """Calls POST /api/v1/refactoring/analyze and returns a refactoring
+        suggestion (summary, changes, improved_code)."""
+        payload = {
+            "source_code": source_code,
+            "file_name": file_name,
+            "review_context": review_context,
+            "language_hint": language_hint,
+        }
+        return self._post("api/v1/refactoring/analyze", payload, timeout_seconds=90.0)
+
+    def generate_unit_tests(
+        self,
+        *,
+        source_code: str,
+        file_name: str | None = None,
+        review_context: str = "",
+        language_hint: str | None = None,
+    ) -> ApiResponse:
+        """Calls POST /api/v1/unit-tests/generate and returns generated
+        unit test code (summary, test_code)."""
+        payload = {
+            "source_code": source_code,
+            "file_name": file_name,
+            "review_context": review_context,
+            "language_hint": language_hint,
+        }
+        return self._post("api/v1/unit-tests/generate", payload, timeout_seconds=90.0)
+
+    def generate_documentation(
+        self,
+        *,
+        source_code: str,
+        file_name: str | None = None,
+        review_context: str = "",
+        language_hint: str | None = None,
+    ) -> ApiResponse:
+        """Calls POST /api/v1/documentation/generate and returns generated
+        Markdown documentation (summary, markdown_documentation)."""
+        payload = {
+            "source_code": source_code,
+            "file_name": file_name,
+            "review_context": review_context,
+            "language_hint": language_hint,
+        }
+        return self._post("api/v1/documentation/generate", payload, timeout_seconds=90.0)
+
     def _post(self, path: str, payload: dict[str, Any], *, timeout_seconds: float | None = None) -> ApiResponse:
         url = urljoin(self.base_url, path)
         try:
