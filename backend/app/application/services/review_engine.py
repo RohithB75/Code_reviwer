@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -8,6 +9,8 @@ from typing import Any
 
 from app.application.services.llm_service import LLMService
 from app.prompts.manager import PromptManager
+
+logger = logging.getLogger(__name__)
 
 
 class ReviewEngineError(RuntimeError):
@@ -79,10 +82,12 @@ class DocumentationAnalysis:
 
 REQUIRED_DOCUMENTATION_HEADINGS: tuple[str, ...] = (
     "# Overview",
-    "# Purpose",
-    "# Function Descriptions",
+    "# Language & Syntax Primer",
+    "# Line-by-Line Walkthrough",
     "# Inputs",
     "# Outputs",
+    "# Worked Example",
+    "# Common Pitfalls",
     "# Usage Examples",
 )
 
@@ -262,7 +267,11 @@ class ReviewEngine:
             file_name=file_name or "<unknown>",
             review_context=review_context,
         )
-        completion = self.llm_service.generate_text(prompt, structured=True)
+        completion = self.llm_service.generate_text(
+            prompt,
+            structured=True,
+            options={"num_ctx": 8192, "num_predict": 4096},
+        )
         review_data = parse_review_payload(completion.response)
         return DocumentationAnalysis(
             language=language,
@@ -422,14 +431,86 @@ def parse_review_payload(raw_response: str) -> dict[str, Any]:
     json_text = extract_json_text(candidate)
     try:
         payload = json.loads(json_text)
-    except json.JSONDecodeError as exc:
-        raise ReviewParseError("Review response was not valid JSON.") from exc
+    except json.JSONDecodeError:
+        # Local/smaller models frequently emit literal newlines or unescaped
+        # quotes inside JSON string values (e.g. multi-line markdown or code
+        # embedded in a "markdown_documentation" field). Try a best-effort
+        # repair before giving up, since re-prompting is expensive.
+        try:
+            payload = json.loads(repair_json_text(json_text))
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "Failed to parse LLM response as JSON even after repair attempt. "
+                "Raw response (first 4000 chars): %s",
+                raw_response[:4000],
+            )
+            raise ReviewParseError("Review response was not valid JSON.") from exc
 
     if not isinstance(payload, dict):
         raise ReviewParseError("Review response JSON must be an object.")
     if "summary" not in payload:
         raise ReviewParseError("Review response is missing a summary field.")
     return payload
+
+
+def repair_json_text(json_text: str) -> str:
+    """Best-effort repair for common local-LLM JSON formatting mistakes:
+    literal (unescaped) newlines/tabs inside string values, and stray
+    backslashes that aren't valid JSON escape sequences (e.g. a model
+    writing about code containing "\\d" or a Windows path without doubling
+    the backslash for JSON). This walks the text character-by-character,
+    tracking whether we are inside a JSON string, and repairs control
+    characters and invalid escapes found there. It does not attempt to fix
+    structurally broken/truncated JSON (unterminated strings, missing
+    braces, etc.) — those are surfaced as a normal parse failure.
+    """
+    valid_escape_chars = set('"\\/bfnrtu')
+    result: list[str] = []
+    in_string = False
+    i = 0
+    length = len(json_text)
+    while i < length:
+        ch = json_text[i]
+        if in_string:
+            if ch == "\\":
+                next_ch = json_text[i + 1] if i + 1 < length else ""
+                if next_ch in valid_escape_chars:
+                    result.append(ch)
+                    result.append(next_ch)
+                    i += 2
+                    continue
+                # Stray backslash (e.g. "\d", a Windows path, LaTeX, etc.)
+                # that isn't a valid JSON escape — double it so it becomes
+                # a literal backslash instead of breaking the parser.
+                result.append("\\\\")
+                i += 1
+                continue
+            if ch == '"':
+                result.append(ch)
+                in_string = False
+                i += 1
+                continue
+            if ch == "\n":
+                result.append("\\n")
+                i += 1
+                continue
+            if ch == "\r":
+                result.append("\\r")
+                i += 1
+                continue
+            if ch == "\t":
+                result.append("\\t")
+                i += 1
+                continue
+            result.append(ch)
+            i += 1
+            continue
+        # Not currently inside a string.
+        if ch == '"':
+            in_string = True
+        result.append(ch)
+        i += 1
+    return "".join(result)
 
 
 def extract_json_text(raw_text: str) -> str:
@@ -671,19 +752,25 @@ def build_fallback_documentation_markdown(
     review_context: str,
 ) -> str:
     """Build a minimal Markdown documentation skeleton when the model omits markdown."""
+    code_fence_lang = language.lower() if language != "Unknown" else "text"
     return (
         f"# Overview\n\n"
-        f"Documentation for `{file_name}` written in {language}.\n\n"
-        f"# Purpose\n\n"
-        f"Describe the purpose of the code and the problem it solves.\n\n"
-        f"# Function Descriptions\n\n"
-        f"- Summarize each function and its responsibility.\n\n"
+        f"Documentation for `{file_name}` written in {language}. "
+        f"(The AI model's response could not be validated, so this is a minimal fallback outline.)\n\n"
+        f"# Language & Syntax Primer\n\n"
+        f"- This file is written in {language}.\n\n"
+        f"# Line-by-Line Walkthrough\n\n"
+        f"- Re-run the documentation generator, or review the code below manually.\n\n"
         f"# Inputs\n\n"
         f"- List and explain the expected inputs.\n\n"
         f"# Outputs\n\n"
         f"- Describe the outputs and return values.\n\n"
+        f"# Worked Example\n\n"
+        f"- Trace through the code with a concrete sample input.\n\n"
+        f"# Common Pitfalls\n\n"
+        f"- Re-run generation for a full analysis.\n\n"
         f"# Usage Examples\n\n"
-        f"```{language.lower() if language != 'Unknown' else 'text'}\n"
+        f"```{code_fence_lang}\n"
         f"{source_code.strip()}\n"
         f"```\n\n"
         f"_Review context_: {review_context or 'No additional context provided.'}\n"

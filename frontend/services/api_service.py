@@ -144,7 +144,7 @@ class ApiService:
             "review_context": review_context,
             "language_hint": language_hint,
         }
-        return self._post("api/v1/documentation/generate", payload, timeout_seconds=90.0)
+        return self._post("api/v1/documentation/generate", payload, timeout_seconds=300.0)
 
     def _post(self, path: str, payload: dict[str, Any], *, timeout_seconds: float | None = None) -> ApiResponse:
         url = urljoin(self.base_url, path)

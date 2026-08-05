@@ -36,4 +36,4 @@ Rules:
 - Never assume the reader already knows what the code does — explain, don't just restate the code in different words.
 - Keep the worked example concrete (use real sample values, not placeholders like "input1").
 - Preserve the behavior and public API of the code in the documentation; do not invent behavior the code does not have.
-- Adapt terminology and syntax explanations to whichever language is detected — do not assume the code is Python unless {language} says so.
+- Adapt terminology and syntax explanations to whichever language is detected — do not assume the code is Python unless {language} says so.docker 

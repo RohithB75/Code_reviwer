@@ -37,7 +37,13 @@ class OllamaClient:
         self.model = model
         self.timeout_seconds = timeout_seconds
 
-    def build_generate_payload(self, prompt: str, *, format_json: bool = False) -> dict[str, Any]:
+    def build_generate_payload(
+        self,
+        prompt: str,
+        *,
+        format_json: bool = False,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "model": self.model,
             "prompt": prompt,
@@ -45,11 +51,19 @@ class OllamaClient:
         }
         if format_json:
             payload["format"] = "json"
+        if options:
+            payload["options"] = options
         return payload
 
-    def generate_text(self, prompt: str, *, format_json: bool = False) -> OllamaCompletion:
+    def generate_text(
+        self,
+        prompt: str,
+        *,
+        format_json: bool = False,
+        options: dict[str, Any] | None = None,
+    ) -> OllamaCompletion:
         url = urljoin(self.base_url, "api/generate")
-        payload = self.build_generate_payload(prompt, format_json=format_json)
+        payload = self.build_generate_payload(prompt, format_json=format_json, options=options)
         clean_base_url = self.base_url.rstrip("/")
 
         try:
