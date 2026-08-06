@@ -1,22 +1,16 @@
 from fastapi import APIRouter, Depends
 
-from app.application.services.llm_service import LLMService
 from app.application.services.report_engine import ReportEngine
 from app.application.services.review_engine import ReviewEngine
 from app.core.config import Settings, get_settings
-from app.infrastructure.ollama_client import OllamaClient
+from app.core.llm_factory import build_llm_service
 from app.schemas.report import ReportPayload, ReportRequest, ReportResponse
 
 router = APIRouter(prefix="/report", tags=["report"])
 
 
 def get_report_engine(settings: Settings = Depends(get_settings)) -> ReportEngine:
-    client = OllamaClient(
-        base_url=settings.ollama_base_url,
-        model=settings.ollama_model,
-        timeout_seconds=settings.ollama_timeout_seconds,
-    )
-    llm_service = LLMService(client)
+    llm_service = build_llm_service(settings)
     review_engine = ReviewEngine(llm_service=llm_service)
     return ReportEngine(review_engine=review_engine)
 

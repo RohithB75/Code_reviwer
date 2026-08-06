@@ -1,21 +1,19 @@
 from fastapi import APIRouter, Depends
 
-from app.application.services.llm_service import LLMService
 from app.application.services.review_engine import ReviewEngine
 from app.core.config import Settings, get_settings
-from app.infrastructure.ollama_client import OllamaClient
+from app.core.llm_factory import build_llm_service
 from app.schemas.documentation import DocumentationGenerationRequest, DocumentationGenerationResponse
 
 router = APIRouter(prefix="/documentation", tags=["documentation"])
 
 
 def get_review_engine(settings: Settings = Depends(get_settings)) -> ReviewEngine:
-    client = OllamaClient(
-        base_url=settings.ollama_base_url,
-        model=settings.ollama_model,
-        timeout_seconds=settings.ollama_timeout_seconds,
+    llm_service = build_llm_service(
+        settings,
+        provider=settings.documentation_llm_provider or "groq",
+        fallback_provider=settings.documentation_llm_fallback_provider or "ollama",
     )
-    llm_service = LLMService(client)
     return ReviewEngine(llm_service=llm_service)
 
 

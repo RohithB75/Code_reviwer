@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     ollama_timeout_seconds: float = 30.0
     openai_api_key: str = ""
     model_name: str = ""
+    llm_provider: str = "ollama"
+    llm_fallback_provider: str = ""
+    documentation_llm_provider: str = ""
+    documentation_llm_fallback_provider: str = ""
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
+    groq_timeout_seconds: float = 60.0
 
     @field_validator("cors_origins", mode="before")
     @classmethod

@@ -785,15 +785,64 @@ def ensure_documentation_markdown(
     file_name: str,
     review_context: str,
 ) -> str:
-    """Ensure the markdown response contains all required documentation sections."""
-    if documentation_has_required_sections(markdown):
+    """Ensure the markdown response contains all required documentation
+    sections. Unlike a strict all-or-nothing check, this merges whatever
+    real content the model produced with fallback placeholder text only for
+    the specific headings that are missing, so a partially-good response
+    from a weaker local model isn't discarded entirely.
+    """
+    sections = split_markdown_into_sections(markdown)
+    missing = [h for h in REQUIRED_DOCUMENTATION_HEADINGS if h not in sections]
+
+    if not missing:
         return markdown.strip()
-    return build_fallback_documentation_markdown(
-        source_code,
-        language=language,
-        file_name=file_name,
-        review_context=review_context,
+
+    logger.warning(
+        "Documentation response was missing required headings %s. "
+        "Merging with fallback content for those sections only. "
+        "Model markdown (first 4000 chars): %s",
+        missing,
+        markdown[:4000],
     )
+
+    fallback_sections = split_markdown_into_sections(
+        build_fallback_documentation_markdown(
+            source_code,
+            language=language,
+            file_name=file_name,
+            review_context=review_context,
+        )
+    )
+
+    merged_parts: list[str] = []
+    for heading in REQUIRED_DOCUMENTATION_HEADINGS:
+        body = sections.get(heading) or fallback_sections.get(heading, "")
+        merged_parts.append(f"{heading}\n\n{body}".strip())
+    return "\n\n".join(merged_parts).strip()
+
+
+def split_markdown_into_sections(markdown: str) -> dict[str, str]:
+    """Split markdown text into a mapping of "# Heading" -> body text
+    (everything up to the next level-1 heading). Headings are matched
+    case-insensitively but returned keyed by their canonical form from
+    REQUIRED_DOCUMENTATION_HEADINGS when they match one of those."""
+    sections: dict[str, str] = {}
+    if not markdown.strip():
+        return sections
+
+    heading_pattern = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
+    matches = list(heading_pattern.finditer(markdown))
+    canonical_by_lower = {h.lower(): h for h in REQUIRED_DOCUMENTATION_HEADINGS}
+
+    for idx, match in enumerate(matches):
+        raw_heading = f"# {match.group(1).strip()}"
+        start = match.end()
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(markdown)
+        body = markdown[start:end].strip()
+        canonical = canonical_by_lower.get(raw_heading.lower())
+        if canonical:
+            sections[canonical] = body
+    return sections
 
 
 def documentation_has_required_sections(markdown: str) -> bool:
