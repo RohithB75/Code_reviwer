@@ -94,7 +94,7 @@ The application now tolerates both JSON arrays and comma-separated values for `C
 - Hardened environment parsing for `CORS_ORIGINS` and added optional rotating file logging via `LOG_FILE`.
 - Added a pytest for the `ReportEngine` and Docker Compose configuration improvements.
 
-## Next steps / Roadmap
+## Future Enhancements
 
 - Create a production-ready `Dockerfile` and `docker-compose.prod.yml` with Gunicorn + Uvicorn workers.
 - Expand unit and integration tests and add CI.
